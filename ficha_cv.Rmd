@@ -1,0 +1,688 @@
+---
+title: ""
+author: ""
+output:
+  prettydoc::html_pretty:
+    theme: hpstr
+    highlight: github
+    date: "`r Sys.setlocale('LC_TIME', 'Spanish'); format(Sys.Date(), '%d de %B de %Y')`"
+---
+
+```{r echo=FALSE, eval=FALSE}
+fecha_exacta <- Sys.Date()
+Sys.setlocale("LC_TIME", "Spanish")
+format(fecha_exacta, "%d de %B de %Y")
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE, warning=F, echo=F, message=F}
+
+library(DT)
+library(htmlwidgets)
+library(tidyverse)
+library(plotly)
+library(data.table)
+library(mxmaps)
+library(gridExtra)
+library(lubridate)
+
+
+year <- 22
+fullyear <- as.numeric(paste0(20,year))
+month <- "jul"
+fullmonth <- "julio"
+mes_actual <- "Julio"
+prevmont <- "junio"
+
+fecha_exacta <- Sys.Date()
+
+
+```
+
+# **Ficha resumen semanal de incididencia delictiva de mujeres** {align="center"}
+
+###### Ficha informativa: `r day(fecha_exacta)` de `r month(fecha_exacta, label=TRUE, abbr=FALSE)` de `r year(fecha_exacta)`{align="right"}
+
+Esta ficha resumen, muestra el total de carpetas reportadas en los municipios de Jalisco por el Secretariado Ejecutivo del Sistemana Nacional de Seguridad Pública[\^1], los datos utilizados corresponden a la fecha de `r fullmonth`de`r fullyear` y sólo se muestra el comportamiento de los delitos que se consideran por razón de género: feminicidio, homicidio doloso, muertes violentas, abuso sexual, violación y violencia familiar. [\^1]: *La última actualización de la base de datos corresponde al mes de julio de 2022*
+
+```{r message=FALSE, warning=FALSE, include=FALSE, warning=F, echo=F, message=F}
+
+#mes_actual <- "jul"
+namefile <- paste0("C:/Users/52331/Documents/NLMR/IDM_NM_",month,year,".csv")
+secretariado_original <- read.csv(namefile,encoding = "latin1")
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+
+##########################################
+#####       Aquí modifiqué cosas      ####
+##########################################
+
+#Total anual
+secretariado <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Subtipo.de.delito=="Feminicidio") %>% 
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año) %>%
+  summarise(Total=sum(Total, na.rm = T))
+
+#Valor máximo anual
+max_total_anual<- max(secretariado$Total)
+
+#Año del valor máximo anual (del paso anterior)
+max_año_anual<- secretariado %>% group_by(Año) %>% filter(Total==max_total_anual) %>%  select(Año)
+max_año_anual<- max_año_anual$Año
+
+# Total  mensual y anual, desagregado al año actual
+total_feminicidios_mensual <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Año==fullyear,
+         Subtipo.de.delito=="Feminicidio") %>% 
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año, Mes,Subtipo.de.delito) %>%
+  summarise(Total=sum(Total, na.rm = T))
+
+#Suma total del año actual
+total_feminicidios<-total_feminicidios_mensual %>% 
+  group_by(Año) %>%
+  summarise(Total=sum(Total)) %>% 
+  select(Total)
+suma_feminicidios<-total_feminicidios$Total
+
+#Total al mes: fullmonth
+filter(total_feminicidios_mensual, Mes==mes_actual) ->feminicidios_fullmonth
+feminicidios_fullmonth<-feminicidios_fullmonth[,4]
+```
+
+------------------------------------------------------------------------
+
+# Feminicidio
+
+Las cifras de feminicidio que se observan desde 2015 tuvieron su punto más bajo en el periodo correspondiente a 2016, 2017 y 2018 mientras que en **`r max_año_anual`** se vivió el mayor número de feminicidios con un total de **`r max_total_anual`**. Actualmente, la cifra hasta **`r fullmonth`** de **`r fullyear`** asciende a **`r suma_feminicidios`** , con un patrón de comportamiento numérico por debajo de los tres años anteriores.
+
+```{r, warning=F, echo=F, message=F, fig.align = 'center'}
+
+secretariado <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Subtipo.de.delito=="Feminicidio") %>% 
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año, Subtipo.de.delito) %>%
+  summarise(Total=sum(Total, na.rm = T)) %>% 
+  mutate(Año=as.character(Año)) %>% 
+ggplot() +
+  aes(x =as.character(Año), y = Total, colour="#C91682") +
+  geom_point(color="#C91682", size=7, alpha=0.6) + 
+  geom_segment(aes(x=Año, xend=Año, y=0, yend=Total),  size=1)+
+  scale_y_continuous(labels = scales::comma) +
+  labs(x="", y="", color="", fill="")+
+  geom_text(aes(label=Total), position=position_dodge (width=0.5), vjust=-0, color="white", size=3) +
+      theme_minimal()+
+      theme(text=element_text(size=11),
+            legend.position="none",
+            plot.margin = margin(2, 2, 2, 2, "cm"),
+            strip.text.x = element_text(size = 12, face = "bold", angle=90),
+            plot.tag = element_text(size = 15L, hjust = 0),
+            plot.title = element_text(size = 15L, hjust = 0.5, family="Montserrat"),
+            plot.caption = element_text(size = 12L, hjust = 0.5),
+            axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=11))->graf
+      
+
+plotly::ggplotly(graf)->graf_plotly
+#graf_plotly
+
+secretariado <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Año==fullyear,
+         Subtipo.de.delito=="Feminicidio") %>% 
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año, Municipio) %>%
+  summarise(value=sum(Total, na.rm = T))
+
+data("df_mxmunicipio_2020")
+df <- merge(df_mxmunicipio_2020, secretariado, 
+            by.x="municipio_name", by.y="Municipio")
+
+
+mxmunicipio_choropleth(df, num_colors = 1,
+                       zoom = subset(df, state_name %in% c("Jalisco"))$region) +  
+  scale_fill_gradient(
+    low = "#d9c7d2",
+    high = "#C91682",
+    guide = "colourbar")+
+  labs(fill="Total", x="", y="")+
+  theme_void()+
+  theme(text=element_text(size=11))->mapa
+
+plotly::ggplotly(mapa)->mapa_plotly
+#mapa_plotly
+
+grid.arrange(graf, mapa, ncol=2,nrow=1,
+         top=paste0("Mujeres víctimas de feminicidio", "\n Datos correspondiente al mes de ", fullmonth, " ",fullyear, "."))
+```
+
+------------------------------------------------------------------------
+
+# Homicidio doloso
+
+```{r, warning=F, echo=F, message=F, fig.align = 'center'}
+#Total anual
+secretariado <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Subtipo.de.delito=="Homicidio doloso") %>% 
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año) %>%
+  summarise(Total=sum(Total, na.rm = T))
+
+#Valor máximo anual
+max_total_anual<- max(secretariado$Total)
+
+#Año del valor máximo anual (del paso anterior)
+max_año_anual<- secretariado %>% group_by(Año) %>% filter(Total==max_total_anual) %>%  select(Año)
+max_año_anual<- max_año_anual$Año
+
+# Total  mensual y anual, desagregado al año actual
+total_homicidiosd_mensual <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Año==fullyear,
+         Subtipo.de.delito=="Homicidio doloso") %>% 
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año, Mes,Subtipo.de.delito) %>%
+  summarise(Total=sum(Total, na.rm = T))
+
+#Suma total del año actual
+total_homicidiosd<-total_homicidiosd_mensual %>% 
+  group_by(Año) %>%
+  summarise(Total=sum(Total)) %>% 
+  select(Total)
+suma_homicidiosd<-total_homicidiosd$Total
+
+#Total al mes: fullmonth
+filter(total_homicidiosd_mensual, Mes==mes_actual) ->
+  homicidiosd_fullmonth
+homicidiosd_fullmonth<-homicidiosd_fullmonth[,4]
+```
+
+En cuanto a homicidio doloso, por un lado se observa que el año con mayor incidencia fue **`r max_año_anual`** con **`r max_total_anual`** homicidios dolosos de mujeres. Por el otro lado, los primeros años del periodo, 2015 a 2017 es cuando se observa menor cantidad de homicidios dolosos, siendo 2015 el menor de todos con 957. Hasta el mes de **`r fullmonth`** de **`r fullyear`** la cifra total es de **`r suma_homicidiosd`** con **`r homicidiosd_fullmonth`** homicidios solo en **`r fullmonth`**.
+
+```{r, warning=F, echo=F, message=F, fig.align = 'center'}
+secretariado <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Subtipo.de.delito=="Homicidio doloso") %>% 
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año, Subtipo.de.delito) %>%
+  summarise(Total=sum(Total, na.rm = T)) %>% 
+  mutate(Año=as.character(Año)) %>% 
+ggplot() +
+  aes(x =as.character(Año), y = Total, colour="#7E3794") +
+  geom_point(color="#7E3794", size=7, alpha=0.6) + 
+  geom_segment(aes(x=Año, xend=Año, y=0, yend=Total),  size=1)+
+  scale_y_continuous(labels = scales::comma) +
+  labs(x="", y="", color="", fill="")+
+  geom_text(aes(label=Total), position=position_dodge (width=0.5), vjust=-0, color="white", size=2) +
+      theme_minimal()+
+      theme(text=element_text(size=11),
+            legend.position="none",
+            plot.margin = margin(2, 2, 2, 2, "cm"),
+            strip.text.x = element_text(size = 12, face = "bold", angle=90),
+            plot.tag = element_text(size = 15L, hjust = 0),
+            plot.title = element_text(size = 15L, hjust = 0.5, family="Nutmeg"),
+            plot.caption = element_text(size = 12L, hjust = 0.5),
+            axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=11))->graf
+      
+
+plotly::ggplotly(graf)->graf_plotly
+
+#-----------------------------------------------------------
+secretariado <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Año==fullyear,
+         Subtipo.de.delito=="Homicidio doloso") %>% 
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año, Municipio) %>%
+  summarise(value=sum(Total, na.rm = T))
+
+data("df_mxmunicipio_2020")
+df <- merge(df_mxmunicipio_2020, secretariado, 
+            by.x="municipio_name", by.y="Municipio")
+
+
+mxmunicipio_choropleth(df, num_colors = 1,
+                       zoom = subset(df, state_name %in% c("Jalisco"))$region) +  
+  scale_fill_gradient(
+    low = "#d1c1d6",
+    high = "#7E3794",
+    guide = "colourbar")+
+  labs(fill="Total", x="", y="")+
+  theme_void()+
+  theme(text=element_text(size=11))->mapa
+
+plotly::ggplotly(mapa)->mapa_plotly
+#mapa_plotly
+
+grid.arrange(graf, mapa, ncol=2,nrow=1,
+         top=paste0("Mujeres víctimas de homicidio doloso", "\n Datos correspondiente al mes de ", fullmonth, " ",fullyear, "."))
+```
+
+------------------------------------------------------------------------
+
+# Muertes violentas
+
+```{r message=F, warning=F, include=F, echo=F, fig.align='center'}
+#Total anual
+secretariado <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Subtipo.de.delito %in%
+           c("Feminicidio", "Homicidio doloso")) %>% 
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año) %>%
+  summarise(Total=sum(Total, na.rm = T))
+
+#Valor máximo anual
+max_total_anual<- max(secretariado$Total)
+
+#Año del valor máximo anual (del paso anterior)
+max_año_anual<- secretariado %>% group_by(Año) %>% filter(Total==max_total_anual) %>%  select(Año)
+max_año_anual<- max_año_anual$Año
+
+# Total  mensual y anual, desagregado al año actual
+total_muertes_violentas_mensual <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Año==fullyear,
+         Subtipo.de.delito %in%
+           c("Feminicidio", "Homicidio doloso")) %>% 
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año, Mes,Subtipo.de.delito) %>%
+  summarise(Total=sum(Total, na.rm = T))
+
+#Suma total del año actual
+total_muertes_violentas<-total_muertes_violentas_mensual %>% 
+  group_by(Año) %>%
+  summarise(Total=sum(Total)) %>% 
+  select(Total)
+suma_muertes_violentas<-total_muertes_violentas$Total
+
+#Total al mes: fullmonth
+filter(total_muertes_violentas_mensual, Mes==mes_actual) ->
+  muertes_violentas_fullmonth
+muertes_violentas_fullmonth <- muertes_violentas_fullmonth[,4]
+
+unido_muertes_violentas_fullmonth <- muertes_violentas_fullmonth %>% 
+  summarise(Total=sum(Total))
+```
+
+La cifra de muertes violentas de mujeres se calcula sumando el total de homicidios dolosos y feminicidios en un año. Se observa que la violencia homicida y feminicida alcanzó su mayor nivel en **`r max_año_anual`** con **`r max_total_anual`** muertes violentas de mujeres en Jalisco. En **`r fullyear`** se observa un total de **`r suma_muertes_violentas`** con **`r unido_muertes_violentas_fullmonth`** en el mes de **`r fullmonth`**.
+
+```{r, warning=F, echo=F, message=F, fig.align = 'center'}
+secretariado <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Subtipo.de.delito %in%
+           c("Feminicidio", "Homicidio doloso")) %>%
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año) %>%
+  summarise(Total=sum(Total, na.rm = T)) %>%
+  mutate(Año=as.character(Año)) %>% 
+ggplot() +
+      aes(x =as.character(Año), y = Total, colour="#C91682") +
+      geom_point(color="#C91682", size=7, alpha=0.6) +
+  geom_segment(aes(x=Año, xend=Año, y=0, yend=Total), size=1)+
+  scale_y_continuous(labels = scales::comma) +
+  labs(x="", y="", color="", fill="")+
+  geom_text(aes(label=Total), position=position_dodge (width=0.5), vjust=-0, color="white", size=2) +
+      theme_minimal()+
+      theme(text=element_text(size=11),
+            legend.position = "none",
+            plot.margin = margin(2, 2, 2, 2, "cm"),
+            strip.text.x = element_text(size = 12, face = "bold", angle=90),
+            plot.tag = element_text(size = 15L, hjust = 0),
+            plot.title = element_text(size = 15L, hjust = 0.5, family="Montserrat"),
+             plot.caption = element_text(size = 12L, hjust = 0.5),
+            axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=11))->graf
+
+plotly::ggplotly(graf)->graf_plotly
+
+# - - - - - - - - - - - 
+
+secretariado<-secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Año==fullyear,
+         Subtipo.de.delito %in%
+           c("Feminicidio", "Homicidio doloso")) %>%
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año, Municipio) %>%
+  summarise(value=sum(Total, na.rm = T))
+
+data("df_mxmunicipio_2020")
+df <- merge(df_mxmunicipio_2020, secretariado, 
+            by.x="municipio_name", by.y="Municipio")
+
+
+mxmunicipio_choropleth(df, num_colors = 1,
+                       zoom = subset(df, state_name %in% 
+                                        c("Jalisco"))$region) +  
+  scale_fill_gradient(
+        low = "#d9c7d2",
+        high = "#C91682",
+        guide = "colourbar")+
+    labs(fill="Total", x="", y="")+
+    theme_void()+
+    theme(text=element_text(size=11))->mapa
+
+plotly::ggplotly(mapa)->mapa_plotly
+
+grid.arrange(graf, mapa, ncol=2,nrow=1,
+         top=paste0("Mujeres víctimas de muertes violentas", "\n Datos correspondiente al mes de ", fullmonth, " ",fullyear, "."))
+```
+
+------------------------------------------------------------------------
+
+# Abuso sexual
+
+```{r, warning=F, echo=F, message=F, fig.align = 'center'}
+#Total anual
+secretariado <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Subtipo.de.delito=="Abuso sexual") %>% 
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año) %>%
+  summarise(Total=sum(Total, na.rm = T))
+
+#Valor máximo anual
+max_total_anual<- max(secretariado$Total)
+
+#Año del valor máximo anual (del paso anterior)
+max_año_anual<- secretariado %>% group_by(Año) %>% filter(Total==max_total_anual) %>%  select(Año)
+max_año_anual<- max_año_anual$Año
+
+# Total  mensual y anual, desagregado al año actual
+total_abuso_sexual_mensual <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Año==fullyear,
+         Subtipo.de.delito=="Abuso sexual") %>% 
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año, Mes,Subtipo.de.delito) %>%
+  summarise(Total=sum(Total, na.rm = T))
+
+#Suma total del año actual
+total_abuso_sexual<-total_abuso_sexual_mensual %>% 
+  group_by(Año) %>%
+  summarise(Total=sum(Total)) %>% 
+  select(Total)
+suma_abuso_sexual <- total_abuso_sexual$Total
+
+#Total al mes: fullmonth
+filter(total_abuso_sexual_mensual, Mes==mes_actual) ->
+  abuso_sexual_fullmonth
+abuso_sexual_fullmonth<-abuso_sexual_fullmonth[,4]
+```
+
+A diferencia de los delitos anteriores, las cifras de Abuso Sexual no varían significativamente entre los años analizados, siendo **`r max_año_anual`** el mes con mayor incidencia con **`r max_total_anual`** casos. La única excepción ocurre en 2015 donde se observaron 1572 casos de abuso sexual. La suma hasta el mes de **`r fullmonth`** del **`r fullyear`** es de **`r suma_abuso_sexual`** con **`r abuso_sexual_fullmonth`** casos en el último mes del análisis.
+
+```{r, warning=F, echo=F, message=F, fig.align = 'center'}
+secretariado <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Subtipo.de.delito=="Abuso sexual") %>% 
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año, Subtipo.de.delito) %>%
+  summarise(Total=sum(Total, na.rm = T)) %>% 
+  mutate(Año=as.character(Año)) %>% 
+ggplot() +
+  aes(x =as.character(Año), y = Total, colour="#7E3794") +
+  geom_point(color="#7E3794", size=7, alpha=0.6) + 
+  geom_segment(aes(x=Año, xend=Año, y=0, yend=Total),  size=1)+
+  scale_y_continuous(labels = scales::comma) +
+  labs(x="", y="", color="", fill="")+
+  geom_text(aes(label=Total), position=position_dodge (width=0.5), vjust=-0, color="white", size=2) +
+      theme_minimal()+
+      theme(text=element_text(size=11),
+            legend.position="none",
+            plot.margin = margin(2, 2, 2, 2, "cm"),
+            strip.text.x = element_text(size = 12, face = "bold", angle=90),
+            plot.tag = element_text(size = 15L, hjust = 0),
+            plot.title = element_text(size = 15L, hjust = 0.5, family="Montserrat"),
+            plot.caption = element_text(size = 12L, hjust = 0.5),
+            axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=11))->graf
+      
+
+plotly::ggplotly(graf)->graf_plotly
+
+#-----------------------------------------------------------
+secretariado <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Año==fullyear,
+         Subtipo.de.delito=="Abuso sexual") %>% 
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año, Municipio) %>%
+  summarise(value=sum(Total, na.rm = T))
+
+data("df_mxmunicipio_2020")
+df <- merge(df_mxmunicipio_2020, secretariado, 
+            by.x="municipio_name", by.y="Municipio")
+
+
+mxmunicipio_choropleth(df, num_colors = 1,
+                       zoom = subset(df, state_name %in% c("Jalisco"))$region) +  
+  scale_fill_gradient(
+    low = "#d1c1d6",
+    high = "#7E3794",
+    guide = "colourbar")+
+  labs(fill="Total", x="", y="")+
+  theme_void()+
+  theme(text=element_text(size=11))->mapa
+
+plotly::ggplotly(mapa)->mapa_plotly
+#mapa_plotly
+
+grid.arrange(graf, mapa, ncol=2,nrow=1,
+         top=paste0("Mujeres víctimas de abuso sexual", "\n Datos correspondiente al mes de ", fullmonth, " ",fullyear, "."))
+```
+
+------------------------------------------------------------------------
+
+# Violencia familiar
+
+```{r, warning=F, echo=F, message=F, fig.align = 'center'}
+#Total anual
+secretariado <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Subtipo.de.delito=="Violencia familiar") %>% 
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año) %>%
+  summarise(Total=sum(Total, na.rm = T))
+
+#Valor máximo anual
+max_total_anual<- max(secretariado$Total)
+
+#Año del valor máximo anual (del paso anterior)
+max_año_anual<- secretariado %>% group_by(Año) %>% filter(Total==max_total_anual) %>%  select(Año)
+max_año_anual<- max_año_anual$Año
+
+# Total  mensual y anual, desagregado al año actual
+total_violencia_familiar_mensual <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Año==fullyear,
+         Subtipo.de.delito=="Violencia familiar") %>% 
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año, Mes,Subtipo.de.delito) %>%
+  summarise(Total=sum(Total, na.rm = T))
+
+#Suma total del año actual
+total_violencia_familiar<-total_violencia_familiar_mensual %>% 
+  group_by(Año) %>%
+  summarise(Total=sum(Total)) %>% 
+  select(Total)
+suma_violencia_familiar <- total_violencia_familiar$Total
+
+#Total al mes: fullmonth
+filter(total_violencia_familiar_mensual, Mes==mes_actual) ->
+  violencia_familiar_fullmonth
+violencia_familiar_fullmonth<-violencia_familiar_fullmonth[,4]
+```
+
+Las cifras de mujeres que han sido víctimas de violencia familiar en los últimos años superan los 8000 casos por año desde 2015, alcanzando el máximo de **`r max_total_anual`** casos en **`r max_año_anual`**. A comparación de los años anteriores, se observa un patrón desacelerado para **`r fullyear`**, pues hasta ahora se ha dado un total de **`r suma_violencia_familiar`** casos con **`r violencia_familiar_fullmonth`** hasta el mes de **`r fullmonth`**.
+
+```{r, warning=F, echo=F, message=F, fig.align = 'center'}
+secretariado <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Subtipo.de.delito=="Violencia familiar") %>% 
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año, Subtipo.de.delito) %>%
+  summarise(Total=sum(Total, na.rm = T)) %>% 
+  mutate(Año=as.character(Año)) %>% 
+ggplot() +
+  aes(x =as.character(Año), y = Total, colour="#C91682") +
+  geom_point(color="#C91682", size=7, alpha=0.6) + 
+  geom_segment(aes(x=Año, xend=Año, y=0, yend=Total),  size=1)+
+  scale_y_continuous(labels = scales::comma) +
+  labs(x="", y="", color="", fill="")+
+  geom_text(aes(label=Total), position=position_dodge (width=0.5), vjust=-0, color="white", size=2) +
+      theme_minimal()+
+      theme(text=element_text(size=11),
+            legend.position="none",
+            plot.margin = margin(2, 2, 2, 2, "cm"),
+            strip.text.x = element_text(size = 12, face = "bold", angle=90),
+            plot.tag = element_text(size = 15L, hjust = 0),
+            plot.title = element_text(size = 15L, hjust = 0.5, family="Montserrat"),
+            plot.caption = element_text(size = 12L, hjust = 0.5),
+            axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=11))->graf
+      
+
+plotly::ggplotly(graf)->graf_plotly
+
+#-----------------------------------------------------------
+secretariado <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Año==fullyear,
+         Subtipo.de.delito=="Violencia familiar") %>% 
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año, Municipio) %>%
+  summarise(value=sum(Total, na.rm = T))
+
+data("df_mxmunicipio_2020")
+df <- merge(df_mxmunicipio_2020, secretariado, 
+            by.x="municipio_name", by.y="Municipio")
+
+
+mxmunicipio_choropleth(df, num_colors = 1,
+                       zoom = subset(df, state_name %in% c("Jalisco"))$region) +  
+  scale_fill_gradient(
+    low = "#d9c7d2",
+    high = "#C91682",
+    guide = "colourbar")+
+  labs(fill="Total", x="", y="")+
+  theme_void()+
+  theme(text=element_text(size=11))->mapa
+
+plotly::ggplotly(mapa)->mapa_plotly
+#mapa_plotly
+
+grid.arrange(graf, mapa, ncol=2,nrow=1,
+         top=paste0("Mujeres víctimas de violencia familiar", "\n Datos correspondiente al mes de ", fullmonth, " ",fullyear, "."))
+```
+
+------------------------------------------------------------------------
+
+# Violación
+
+```{r, warning=F, echo=F, message=F, fig.align = 'center'}
+#Total anual
+secretariado <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Subtipo.de.delito %in%
+           c("Violación simple", "Violación equiparada")) %>% 
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año) %>%
+  summarise(Total=sum(Total, na.rm = T))
+
+#Valor máximo anual
+max_total_anual<- max(secretariado$Total)
+
+#Año del valor máximo anual (del paso anterior)
+max_año_anual<- secretariado %>% group_by(Año) %>% filter(Total==max_total_anual) %>%  select(Año)
+max_año_anual<- max_año_anual$Año
+
+# Total  mensual y anual, desagregado al año actual
+total_violación_mensual <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Año==fullyear,
+         Subtipo.de.delito %in%
+           c("Violación simple", "Violación equiparada")) %>% 
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año, Mes,Subtipo.de.delito) %>%
+  summarise(Total=sum(Total, na.rm = T))
+
+#Suma total del año actual
+total_violación<-total_violación_mensual %>% 
+  group_by(Año) %>%
+  summarise(Total=sum(Total)) %>% 
+  select(Total)
+suma_violación<-total_violación$Total
+
+#Total al mes: fullmonth
+filter(total_violación_mensual, Mes==mes_actual) ->
+  violación_fullmonth
+violación_fullmonth <- violación_fullmonth[,4]
+
+unido_violación_fullmonth <- violación_fullmonth %>% 
+  summarise(Total=sum(Total))
+```
+
+El promedio del número de violaciones en los últimos siete años en Jalisco es de 440 aproximadamente, considerando ambas, violación simple y equiparada. Se observa que en 2015, 2018 y 2020 se dieron menos de 400 casos anuales y más de 400 en 2016, 2017, 2019. En **`r max_año_anual`** se dió el nivel más alto del periodo con **`r max_total_anual`** casos. En lo que va del **`r fullyear`**, se han registrado un total de **`r suma_violación`** casos con **`r unido_violación_fullmonth`** en el último mes de **`r fullmonth`**.
+
+```{r, warning=F, echo=F, message=F, fig.align = 'center'}
+secretariado <- secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Subtipo.de.delito %in%
+           c("Violación simple", "Violación equiparada")) %>%
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año) %>%
+  summarise(Total=sum(Total, na.rm = T)) %>%
+  mutate(Año=as.character(Año)) %>% 
+ggplot() +
+      aes(x =as.character(Año), y = Total, colour="#7E3794") +
+      geom_point(color="#7E3794", size=7, alpha=0.6) +
+  geom_segment(aes(x=Año, xend=Año, y=0, yend=Total), size=1)+
+  scale_y_continuous(labels = scales::comma) +
+  labs(x="", y="", color="", fill="")+
+  geom_text(aes(label=Total), position=position_dodge (width=0.5), vjust=-0, color="white", size=2) +
+      theme_minimal()+
+      theme(text=element_text(size=11),
+            legend.position = "none",
+            plot.margin = margin(2, 2, 2, 2, "cm"),
+            strip.text.x = element_text(size = 12, face = "bold", angle=90),
+            plot.tag = element_text(size = 15L, hjust = 0),
+            plot.title = element_text(size = 15L, hjust = 0.5, family="Montserrat"),
+             plot.caption = element_text(size = 12L, hjust = 0.5),
+            axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=11))->graf
+
+plotly::ggplotly(graf)->graf_plotly
+
+# - - - - - - - - - - - 
+
+secretariado<-secretariado_original %>% 
+  filter(Entidad=="Jalisco",
+         Año==fullyear,
+         Subtipo.de.delito %in%
+           c("Violación simple", "Violación equiparada")) %>%
+  gather(Mes, Total, Enero:Diciembre) %>% 
+  group_by(Año, Municipio) %>%
+  summarise(value=sum(Total, na.rm = T))
+
+data("df_mxmunicipio_2020")
+df <- merge(df_mxmunicipio_2020, secretariado, 
+            by.x="municipio_name", by.y="Municipio")
+
+
+mxmunicipio_choropleth(df, num_colors = 1,
+                       zoom = subset(df, state_name %in% 
+                                        c("Jalisco"))$region) +  
+  scale_fill_gradient(
+        low = "#d1c1d6",
+        high = "#7E3794",
+        guide = "colourbar")+
+    labs(fill="Total", x="", y="")+
+    theme_void()+
+    theme(text=element_text(size=11))->mapa
+
+plotly::ggplotly(mapa)->mapa_plotly
+
+grid.arrange(graf, mapa, ncol=2,nrow=1,
+         top=paste0("Mujeres víctimas de violación", "\n Datos correspondiente al mes de ", fullmonth, " ",fullyear, "."))
+```
